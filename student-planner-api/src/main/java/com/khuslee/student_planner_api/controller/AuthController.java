@@ -25,6 +25,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
+        System.out.println("REGISTER HIT: " + req.getUsername());
         userService.register(req);
         return ResponseEntity.ok("Registered");
     }
@@ -37,10 +38,7 @@ public class AuthController {
 
     }
 
-    @GetMapping("/api/me")
-    public String me(Authentication auth) {
-        return auth.getName();
-    }
+
 
 
 }
