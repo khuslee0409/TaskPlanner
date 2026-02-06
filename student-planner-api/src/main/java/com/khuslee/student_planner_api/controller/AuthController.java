@@ -4,6 +4,7 @@ import com.khuslee.student_planner_api.auth.AuthResponse;
 import com.khuslee.student_planner_api.auth.LoginRequest;
 import com.khuslee.student_planner_api.auth.RegisterRequest;
 import com.khuslee.student_planner_api.UserService.UserService;
+import com.khuslee.student_planner_api.auth.VerifyCodeRequest;
 import com.khuslee.student_planner_api.security.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -26,8 +27,28 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         System.out.println("REGISTER HIT: " + req.getUsername());
-        userService.register(req);
+        try{
+            userService.register(req);
+
+        } catch (Exception e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
         return ResponseEntity.ok("Registered");
+    }
+
+    @PostMapping("/verify-code")
+    public ResponseEntity<?> verifyCode(@RequestBody VerifyCodeRequest request){
+        boolean verified = userService.verifyCode(request.getEmail(), request.getCode());
+
+        if (verified) {
+            return ResponseEntity.ok((
+                    "Email verified successfully! You can now login."
+            ));
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(("Invalid or expired code"));
+        }
     }
 
     @PostMapping("/login")
