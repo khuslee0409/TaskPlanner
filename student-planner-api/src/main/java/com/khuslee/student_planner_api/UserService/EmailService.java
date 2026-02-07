@@ -19,7 +19,7 @@ public class EmailService {
             message.setFrom("khusleebatsuuri@gmail.com");
             message.setTo(toEmail);
             message.setSubject("Your verification Code of Student Planner");
-            message.setText("Your verification code is " + code + "\\n\\nThis code will expire in 10 minutes.");
+            message.setText("Your verification code is " + code + "  This code will expire in 10 minutes.");
             mailSender.send(message);
         }catch (Exception e){
             throw new RuntimeException("Failed to send email"+ e.getMessage(), e);
