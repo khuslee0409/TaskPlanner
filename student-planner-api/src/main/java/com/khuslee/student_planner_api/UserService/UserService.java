@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -76,9 +77,85 @@ public class UserService {
         return true;
     }
 
+    @Transactional
+    public void requestPasswordReset(String email) {
+        UserEntity user = users.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        String resetCode = emailService.generateVerificationCode();
+        user.setPasswordResetCode(resetCode);
+        user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(10));
+        users.save(user);
+
+        emailService.sendPasswordResetCode(email, resetCode);
+    }
+
+    @Transactional
+    public String verifyResetCodeAndGenerateToken(String email, String code) {
+        UserEntity user = users.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (user.getPasswordResetCode() == null) {
+            throw new IllegalArgumentException("No reset request found");
+        }
+
+        if (!code.equals(user.getPasswordResetCode())) {
+            throw new IllegalArgumentException("Invalid reset code");
+        }
+
+        if (user.getResetCodeExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Reset code has expired");
+        }
+
+        // Generate a one-time reset token
+        String resetToken = UUID.randomUUID().toString();
+        user.setPasswordResetToken(resetToken);
+        user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(5)); // 5 min to enter new password
+
+        // Clear the code since it's been used
+        user.setPasswordResetCode(null);
+        user.setResetCodeExpiry(null);
+
+        users.save(user);
+
+        return resetToken;
+    }
+
+    @Transactional
+    public void resetPasswordWithToken(String email, String token, String newPassword) {
+        UserEntity user = users.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (user.getPasswordResetToken() == null) {
+            throw new IllegalArgumentException("Invalid or expired reset session");
+        }
+
+        if (!token.equals(user.getPasswordResetToken())) {
+            throw new IllegalArgumentException("Invalid reset token");
+        }
+
+        if (user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Reset session has expired");
+        }
+
+        // Update password
+        user.setPasswordHash(encoder.encode(newPassword));
+
+        // Clear all reset-related fields
+        user.setPasswordResetToken(null);
+        user.setResetTokenExpiry(null);
+
+        users.save(user);
+    }
+
     public void login(LoginRequest req) {
         UserEntity user = users.findByUsername(req.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+
+        System.out.println("User found: " + user.getUsername());
+        System.out.println("Email verified: " + user.isEmailVerified());
+        System.out.println("Verification code: " + user.getVerificationCode());
+        System.out.println("Password matches: " + encoder.matches(req.getPassword(), user.getPasswordHash()));
 
         if (!encoder.matches(req.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid credentials");

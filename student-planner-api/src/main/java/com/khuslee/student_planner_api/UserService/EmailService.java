@@ -19,11 +19,19 @@ public class EmailService {
             message.setFrom("khusleebatsuuri@gmail.com");
             message.setTo(toEmail);
             message.setSubject("Your verification Code of Student Planner");
-            message.setText("Your verification code is " + code + "  This code will expire in 10 minutes.");
+            message.setText("Your verification code is " + code + ". This code will expire in 10 minutes.");
             mailSender.send(message);
         }catch (Exception e){
             throw new RuntimeException("Failed to send email"+ e.getMessage(), e);
         }
+    }
+
+    public void sendPasswordResetCode(String to, String code){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Password Reset Code");
+        message.setText("Your password reset code is: " + code + ". This code will expire in 10 minutes" );
+        mailSender.send(message);
     }
 
     public String generateVerificationCode(){

@@ -1,15 +1,14 @@
 package com.khuslee.student_planner_api.controller;
 
-import com.khuslee.student_planner_api.auth.AuthResponse;
-import com.khuslee.student_planner_api.auth.LoginRequest;
-import com.khuslee.student_planner_api.auth.RegisterRequest;
+import com.khuslee.student_planner_api.auth.*;
 import com.khuslee.student_planner_api.UserService.UserService;
-import com.khuslee.student_planner_api.auth.VerifyCodeRequest;
 import com.khuslee.student_planner_api.security.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -58,6 +57,40 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token));
 
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest req){
+        try {
+            userService.requestPasswordReset(req.getEmail());
+            return ResponseEntity.ok(Map.of("message", "Password reset code sent to your email"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<?> verifyResetCode(@RequestBody VerifyResetCodeRequest req){
+        try {
+            String token = userService.verifyResetCodeAndGenerateToken(req.getEmail(), req.getCode());
+            return ResponseEntity.ok(new VerifyResetCodeResponse(token, req.getEmail()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest req) {
+        try {
+            userService.resetPasswordWithToken(req.getEmail(), req.getToken(), req.getNewPassword());
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+
+
+
 
 
 
