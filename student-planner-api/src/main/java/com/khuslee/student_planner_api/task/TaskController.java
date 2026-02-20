@@ -4,7 +4,11 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -19,8 +23,12 @@ public class TaskController {
     // Create task
     @PostMapping
     public TaskEntity createTask(@Valid @RequestBody CreateTaskRequest request,
-                                 Principal principal) {
-        return service.createTask(principal.getName(), request.getTitle());
+                                 Principal principal) throws ParseException {
+        String username = principal.getName();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy hh:mm a");
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC")); // Force UTC parsing
+        Date deadlineDate = sdf.parse(request.getDeadline());
+        return service.createTask(username, request.getTitle(), deadlineDate);
     }
 
     // Get tasks (ordered)

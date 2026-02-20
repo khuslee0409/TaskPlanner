@@ -3,6 +3,7 @@ package com.khuslee.student_planner_api.task;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -18,11 +19,11 @@ public class TaskService {
 
     // Create task
 
-    public TaskEntity createTask(String username, String title) {
+    public TaskEntity createTask(String username, String title, Date deadline) {
 
         int position = tasks.countByUsernameAndCompletedFalse(username);
 
-        TaskEntity task = new TaskEntity(username, title, position);
+        TaskEntity task = new TaskEntity(username, title, position, deadline);
         return tasks.save(task);
     }
 

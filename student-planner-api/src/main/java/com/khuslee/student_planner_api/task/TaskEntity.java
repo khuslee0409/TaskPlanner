@@ -1,7 +1,11 @@
 package com.khuslee.student_planner_api.task;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
+import org.springframework.boot.data.autoconfigure.metrics.DataRepositoryMetricsAutoConfiguration;
+
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Entity
 @Table(name = "tasks")
@@ -32,19 +36,20 @@ public class TaskEntity {
     private boolean completed;
 
     // Metadata
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private Date deadline;
 
     // ---- Constructors ----
     public TaskEntity() {}
 
-    public TaskEntity(String username, String title, int position) {
+    public TaskEntity(String username, String title, int position, Date deadline) {
         this.username = username;
         this.title = title;
         this.position = position;
         this.progress = 0;
         this.completed = false;
-        this.createdAt = LocalDateTime.now();
+        this.deadline = deadline;
     }
 
 
@@ -67,5 +72,5 @@ public class TaskEntity {
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { this.completed = completed; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public Date getDeadline() { return deadline; }
 }
