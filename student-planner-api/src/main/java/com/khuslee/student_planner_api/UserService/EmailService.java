@@ -1,43 +1,60 @@
 package com.khuslee.student_planner_api.UserService;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Random;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 @Service
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
-    @Async
-    public void sendVerificationCode(String toEmail, String code){
+    @Value("${RESEND_API_KEY}")
+    private String apiKey;
+
+    @Value("${MAIL_FROM}")
+    private String mailFrom;
+
+    public void sendVerificationCode(String toEmail, String code) {
+
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("khusleebatsuuri@gmail.com");
-            message.setTo(toEmail);
-            message.setSubject("Your verification Code of Student Planner");
-            message.setText("Your verification code is " + code + ". This code will expire in 10 minutes.");
-            mailSender.send(message);
-        }catch (Exception e){
-            throw new RuntimeException("Failed to send email"+ e.getMessage(), e);
+
+            URL url = new URL("https://api.resend.com/emails");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("Content-Type", "application/json");
+
+            conn.setDoOutput(true);
+
+            String body = """
+            {
+              "from": "%s",
+              "to": ["%s"],
+              "subject": "Student Planner Verification Code",
+              "html": "<h2>Your verification code is: %s</h2><p>Expires in 10 minutes.</p>"
+            }
+            """.formatted(mailFrom, toEmail, code);
+
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body.getBytes());
+            }
+
+            int responseCode = conn.getResponseCode();
+
+            if (responseCode >= 400) {
+                throw new RuntimeException("Resend failed with code: " + responseCode);
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
         }
     }
-    @Async
-    public void sendPasswordResetCode(String to, String code){
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("Password Reset Code");
-        message.setText("Your password reset code is: " + code + ". This code will expire in 10 minutes" );
-        mailSender.send(message);
-    }
 
-    public String generateVerificationCode(){
-        Random random = new Random();
-        int code = 10000 + random.nextInt(900000);
+    public String generateVerificationCode() {
+        int code = 100000 + (int)(Math.random() * 900000);
         return String.valueOf(code);
     }
 }
