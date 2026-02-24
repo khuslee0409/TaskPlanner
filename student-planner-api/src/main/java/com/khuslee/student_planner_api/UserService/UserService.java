@@ -8,6 +8,8 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -28,6 +30,8 @@ public class UserService {
         this.emailService = theEmailService;
     }
 
+
+
     @Transactional
     public void register(RegisterRequest req) {
         String username = req.getUsername().trim();
@@ -36,11 +40,13 @@ public class UserService {
             throw new IllegalArgumentException("Username already exists");
         }
 
+        String theEmail = req.getEmail().trim().toLowerCase();
+
         UserEntity u = new UserEntity();
         u.setUsername(username);
         u.setPasswordHash(encoder.encode(req.getPassword()));
-        u.setEmail(req.getEmail());
-        u.setEmailVerified(false); // New users start unverified
+        u.setEmail(theEmail);
+        u.setEmailVerified(false);
 
         String code = emailService.generateVerificationCode();
         u.setVerificationCode(code);
@@ -48,7 +54,17 @@ public class UserService {
 
         users.save(u);
 
-        emailService.sendVerificationCode(req.getEmail(), code);
+        // Send email only AFTER the DB transaction commits (so no rollback)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    emailService.sendVerificationCode(theEmail, code);
+                } catch (Exception ex) {
+                    ex.printStackTrace(); // log error; user remains saved
+                }
+            }
+        });
     }
 
     @Transactional
@@ -79,15 +95,33 @@ public class UserService {
 
     @Transactional
     public void requestPasswordReset(String email) {
-        UserEntity user = users.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Optional<UserEntity> userOpt = users.findByEmail(email.trim().toLowerCase());
+
+        // SECURITY: don't reveal whether email exists
+        if (userOpt.isEmpty()) {
+            return;
+        }
+
+        UserEntity user = userOpt.get();
 
         String resetCode = emailService.generateVerificationCode();
         user.setPasswordResetCode(resetCode);
         user.setResetCodeExpiry(LocalDateTime.now().plusMinutes(10));
+
         users.save(user);
 
-        emailService.sendPasswordResetCode(email, resetCode);
+        // send email AFTER commit (prevents rollback if email fails)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    emailService.sendPasswordResetCode(user.getEmail(), resetCode);
+                } catch (Exception e) {
+                    e.printStackTrace(); // log but don't undo DB save
+                }
+            }
+        });
     }
 
     @Transactional
