@@ -35,12 +35,18 @@ public class UserService {
     @Transactional
     public void register(RegisterRequest req) {
         String username = req.getUsername().trim();
+        String theEmail = req.getEmail().trim().toLowerCase();
+
 
         if (users.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists");
         }
 
-        String theEmail = req.getEmail().trim().toLowerCase();
+        if (users.existsByEmailIgnoreCase(theEmail)) {
+            throw new IllegalArgumentException("Email already registered");
+        }
+
+
 
         UserEntity u = new UserEntity();
         u.setUsername(username);
@@ -69,7 +75,10 @@ public class UserService {
 
     @Transactional
     public boolean verifyCode(String email, String code) {
-        Optional<UserEntity> userOpt = users.findByEmail(email);
+        String theEmail = (email == null) ? "" : email.trim().toLowerCase();
+        String theCode  = (code == null)  ? "" : code.trim();
+
+        Optional<UserEntity> userOpt = users.findByEmailIgnoreCase(theEmail);
 
         if (userOpt.isEmpty()) {
             return false;
@@ -77,11 +86,15 @@ public class UserService {
 
         UserEntity user = userOpt.get();
 
-        if (!code.equals(user.getVerificationCode())) {
+        if (user.getVerificationCode() == null) {
             return false;
         }
 
-        if (user.getCodeExpiry().isBefore(LocalDateTime.now())) {
+        if (!theCode.equals(user.getVerificationCode().trim())) {
+            return false;
+        }
+
+        if (user.getCodeExpiry() == null || user.getCodeExpiry().isBefore(LocalDateTime.now())) {
             return false;
         }
 
@@ -118,7 +131,7 @@ public class UserService {
                 try {
                     emailService.sendPasswordResetCode(user.getEmail(), resetCode);
                 } catch (Exception e) {
-                    e.printStackTrace(); // log but don't undo DB save
+                    e.printStackTrace();
                 }
             }
         });
@@ -126,6 +139,10 @@ public class UserService {
 
     @Transactional
     public String verifyResetCodeAndGenerateToken(String email, String code) {
+
+        email = email.trim().toLowerCase();
+        code  = code.trim();
+
         UserEntity user = users.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -157,6 +174,9 @@ public class UserService {
 
     @Transactional
     public void resetPasswordWithToken(String email, String token, String newPassword) {
+        email = email.trim().toLowerCase();
+        token = token.trim();
+
         UserEntity user = users.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
